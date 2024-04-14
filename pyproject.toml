@@ -9,8 +9,6 @@ readme = "README.md"
 python = "^3.10"
 opencv-python = "^4.9.0.80"
 ultralytics = "^8.1.47"
-transformers = "^4.39.3"
-timm = "^0.9.16"
 pytapo = "^3.3.19"
 
 
