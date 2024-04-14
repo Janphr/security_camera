@@ -13,11 +13,15 @@ import os
 
 ip = "192.168.0.105"
 port = 554
+# Login from Tapo App: Device Settings -> Advanced Settings -> Camera Account
 username = ""
 password = ""
+# Password of Tapo App
 cloudPassword = ""
 
+# To prevent unwanted recordings. Static, frequently detected objects will be ignored automatically
 ignore_class_list = ['bench', 'fire hydrant', 'chair', 'giraffe', 'cow', 'bench', 'chair', 'potted plant', 'couch']
+# We only want to chase away cats!
 alarm_class_list = ['cat']
 
 class VideoCapture:
