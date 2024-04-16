@@ -10,6 +10,8 @@ import subprocess as sp
 import shlex
 import os
 
+model_name = "yolov8n.pt" # yolov8s.pt, yolov9.pt
+confidence = 0.85
 
 ip = "192.168.0.105"
 port = 554
@@ -20,7 +22,7 @@ password = ""
 cloudPassword = ""
 
 # To prevent unwanted recordings. Static, frequently detected objects will be ignored automatically
-ignore_class_list = ['bench', 'fire hydrant', 'chair', 'giraffe', 'cow', 'bench', 'chair', 'potted plant', 'couch']
+ignore_class_list = ['bowl', 'bench', 'fire hydrant', 'chair', 'giraffe', 'cow', 'bench', 'chair', 'potted plant', 'couch']
 # We only want to chase away cats!
 alarm_class_list = ['cat']
 
@@ -103,9 +105,13 @@ def calculate_distance(coord1, coord2):
 
 def predict(chosen_model, img, classes=[], conf=0.5):
     if classes:
-        results = chosen_model.predict(img, classes=classes, conf=conf, verbose=False)
+        results = chosen_model.predict(img, classes=classes, conf=conf, 
+        # verbose=False
+        )
     else:
-        results = chosen_model.predict(img, conf=conf, verbose=False)
+        results = chosen_model.predict(img, conf=conf, 
+        # verbose=False
+        )
 
     return results
 
@@ -162,7 +168,7 @@ class ObjectMemory:
 
 def main():
     
-    model = YOLO("yolov9c.pt")
+    model = YOLO(model_name)
     
     om = ObjectMemory(list(model.names.values()))
     
@@ -181,7 +187,7 @@ def main():
         while True:
             frame = cap.read()
             
-            result_frame, detections = predict_and_detect(model, frame, classes=[], conf=0.75)
+            result_frame, detections = predict_and_detect(model, frame, classes=[], conf=confidence)
             detections = om.check(detections)
             
             if detections:
@@ -214,7 +220,7 @@ def main():
                     alarm = False
                     print("Alarm stopped...")
                 
-            show(result_frame)
+            # show(result_frame)
 
     except KeyboardInterrupt:
         pass

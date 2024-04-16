@@ -11,6 +11,9 @@ opencv-python = "^4.9.0.80"
 ultralytics = "^8.1.47"
 pytapo = "^3.3.19"
 
+[tool.poetry.scripts]
+app = "security_camera.main:main"
+
 
 [build-system]
 requires = ["poetry-core"]
