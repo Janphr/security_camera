@@ -2,19 +2,25 @@ import os
 
 os.environ['OMP_NUM_THREADS'] = '1'
 
-from time import time
+from time import time, sleep
 import cv2 as cv
 from ultralytics import YOLO
 from collections import deque
+from telethon.sync import TelegramClient
 import threading
 from pytapo import Tapo
 import math
 import datetime
 import subprocess as sp
 import shlex
+import asyncio
+import queue
+from io import BytesIO
+from PIL import Image
+import numpy as np
 
 model_name = "yolov8n.pt" # yolov8s.pt, yolov9.pt
-confidence = 0.85
+confidence = 0.65
 
 ip = "192.168.0.102"
 port = 554
@@ -24,10 +30,60 @@ password = ""
 # Password of Tapo App
 cloudPassword = ""
 
+# https://core.telegram.org/api/obtaining_api_id
+tg_api_id = ""
+tg_api_hash = ""
+tg_channel = "t.me/" # "t.me/channel_id"
+
 # To prevent unwanted recordings. Static, frequently detected objects will be ignored automatically
-ignore_class_list = ['bowl', 'bench', 'fire hydrant', 'chair', 'giraffe', 'cow', 'bench', 'chair', 'potted plant', 'couch']
+ignore_class_list = ['bowl', 'bench', 'fire hydrant', 'chair', 'giraffe', 'cow', 'bench', 'chair', 'potted plant', 'couch', 'tv']
 # We only want to chase away cats!
 alarm_class_list = ['cat']
+
+class TelegramWrapper:
+    ul_queue = queue.Queue()
+    def __init__(self, api_id, api_hash, default_ch_id=None):
+        self.api_id = api_id
+        self.api_hash = api_hash
+        self.client = TelegramClient('anon', api_id, api_hash)
+        self.default_ch_id = default_ch_id            
+        self.thread = threading.Thread(target=asyncio.run, args=(self.run(),), daemon=True).start()
+            
+    async def _send_file(self, file, caption='', ch_id=None):
+        if not ch_id:
+            channel = self.default_ch
+        else:
+            channel = await self.client.get_entity(ch_id)
+            
+        
+        _file = file[:, :, ::-1]
+        img = Image.fromarray(_file)
+        bio = BytesIO()
+        bio.name = caption + '.jpg'
+        img.save(bio, 'JPEG')
+        bio.seek(0)
+        
+        print(f"Sending {caption} to {channel.title}")
+        
+        await self.client.send_file(channel, bio, caption=caption)
+        
+    async def run(self):
+        
+        await self.client.start()  
+        if self.default_ch_id:
+            self.default_ch = await self.client.get_entity(self.default_ch_id)     
+            
+        print(f"Telegram client started.") 
+            
+        while True:
+            try:
+                file, caption, ch_id = self.ul_queue.get()
+                await self._send_file(file, caption, ch_id)
+            except Exception:
+                sleep(.1)
+            
+    def send_file(self, file, caption, ch_id=None):
+        self.ul_queue.put((file, caption, ch_id))
 
 class VideoCapture:
   rec_jobs = {}  
@@ -38,6 +94,8 @@ class VideoCapture:
         
     self.cap = cv.VideoCapture(src)
     self.q = deque(maxlen=60)
+    
+    self.tg = TelegramWrapper(tg_api_id, tg_api_hash, tg_channel)
 
     t = threading.Thread(target=self._reader, daemon=True)
     t.start()
@@ -55,13 +113,12 @@ class VideoCapture:
   def read(self):
     return self.q[-1]
 
-  def start_recording(self, filename_appendix):
+  def start_recording(self, rec_filename, result_frame):
     for rec_job in self.rec_jobs.values():
         if 'thread' not in rec_job: return
         
-    rec_filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    if filename_appendix:
-        rec_filename += "_" + str(filename_appendix)
+    self.tg.send_file(result_frame, caption=rec_filename)
+        
     self.rec_jobs[rec_filename] = {
         'frames': list(self.q)
     }
@@ -180,6 +237,8 @@ def main():
     tapo = Tapo(ip, 'admin', cloudPassword, cloudPassword)
 
     print(tapo.getBasicInfo())
+    
+    
       
     alarm = False
     
@@ -197,9 +256,11 @@ def main():
                 rec_class_name = next((x[0] for x in detections if x[0] not in ignore_class_list), None)
                 alarm_class_name = next((x[0] for x in detections if x[0] in alarm_class_list), None)
                 
+                rec_filename = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + "_" + str(rec_class_name)
+                
                 if rec_class_name:
                     frames_without_detections = 0
-                    cap.start_recording(rec_class_name)
+                    cap.start_recording(rec_filename, result_frame)
                 else:
                     frames_without_detections += 1
                     if frames_without_detections > wait_frames:
@@ -223,6 +284,7 @@ def main():
                     alarm = False
                     print("Alarm stopped...")
                 
+            
             # show(result_frame)
 
     except KeyboardInterrupt:

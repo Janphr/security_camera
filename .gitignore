@@ -1,3 +1,5 @@
 .vscode/
 yolo*
 __pycache__/
+anon*
+data/
