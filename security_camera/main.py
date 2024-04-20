@@ -1,3 +1,7 @@
+import os
+
+os.environ['OMP_NUM_THREADS'] = '1'
+
 from time import time
 import cv2 as cv
 from ultralytics import YOLO
@@ -8,12 +12,11 @@ import math
 import datetime
 import subprocess as sp
 import shlex
-import os
 
 model_name = "yolov8n.pt" # yolov8s.pt, yolov9.pt
 confidence = 0.85
 
-ip = "192.168.0.105"
+ip = "192.168.0.102"
 port = 554
 # Login from Tapo App: Device Settings -> Advanced Settings -> Camera Account
 username = ""
