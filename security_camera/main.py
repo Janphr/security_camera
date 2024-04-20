@@ -42,6 +42,7 @@ alarm_class_list = ['cat']
 
 class TelegramWrapper:
     ul_queue = queue.Queue()
+    running = False
     def __init__(self, api_id, api_hash, default_ch_id=None):
         self.api_id = api_id
         self.api_hash = api_hash
@@ -73,6 +74,8 @@ class TelegramWrapper:
         if self.default_ch_id:
             self.default_ch = await self.client.get_entity(self.default_ch_id)     
             
+        self.running = True
+            
         print(f"Telegram client started.") 
             
         while True:
@@ -88,6 +91,7 @@ class TelegramWrapper:
 class VideoCapture:
   rec_jobs = {}  
   data_path = "./data/"
+  running = False
   def __init__(self, src):
     if not os.path.exists(self.data_path):
         os.makedirs(self.data_path)
@@ -96,11 +100,16 @@ class VideoCapture:
     self.q = deque(maxlen=60)
     
     self.tg = TelegramWrapper(tg_api_id, tg_api_hash, tg_channel)
+    
+    print("Waiting for Telegram client to start...")
+    while not self.tg.running:
+        sleep(.1)
 
     t = threading.Thread(target=self._reader, daemon=True)
     t.start()
 
   def _reader(self):
+    self.running = True
     while True:
       ret, frame = self.cap.read()
       if not ret:
@@ -234,12 +243,14 @@ def main():
     
     cap = VideoCapture(f"rtsp://{username}:{password}@{ip}:{port}/stream1")
     
+    print("Waiting for camera to start...")
+    while not cap.running:
+        sleep(.1)
+    
     tapo = Tapo(ip, 'admin', cloudPassword, cloudPassword)
 
     print(tapo.getBasicInfo())
     
-    
-      
     alarm = False
     
     frames_without_detections = 0
